@@ -44,3 +44,39 @@ def preprocess(df):
     x = df.drop("Class", axis = 1)
     y = df["Class"]
 
+    # Feature Scaling
+    scaler = StandardScaler()
+    x[["Time", "Amount"]] = scaler.fit_transform(X[["Time", "Amount"]])
+    return x, y, scaler
+
+def build_pipeline():
+    return Pipeline([
+        ("undersample", RandomUnderSampler(sampling_strategy=0.8)),
+        ("smote", SMOTE(sampling_strategy=0.1)),
+        ("model", RandomForestClassifier(
+            class_weight="balanced",
+            random_state=42,
+            n_jobs=-1
+        ))
+    ])
+
+def tune_model(pipeline, X, y):
+    params = {
+        "model__n_estimators": [200, 300],
+        "model__max_depth": [10, 20, None],
+        "model__min_samples_split": [2, 5]
+    }
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    grid = GridSearchCV(
+        estimator=pipeline,
+        param_grid=params,
+        scoring="roc_auc",
+        cv=cv,
+        n_jobs=-1,
+        verbose=2
+    )
+    grid.fit(X, y)
+    print("Best Parameters:", grid.best_params_)
+    print("Best ROC-AUC Score:", grid.best_score_)
+    return grid.best_estimator_
