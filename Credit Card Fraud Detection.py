@@ -21,7 +21,7 @@ from imblearn.pipeline import Pipeline
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 
-def load_dataset(path="credit_card.csv"):
+def load_dataset(path="creditcard.csv"):
     df = pd.read_csv(path)
     return df
 
@@ -80,3 +80,65 @@ def tune_model(pipeline, X, y):
     print("Best Parameters:", grid.best_params_)
     print("Best ROC-AUC Score:", grid.best_score_)
     return grid.best_estimator_
+# ===========================================================
+# Evaluation
+# ===========================================================
+def evaluate(model, X_test, y_test):
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+
+    print("\n=== Model Evaluation ===")
+    print(f"Accuracy:  {accuracy_score(y_test, y_pred):.4f}")
+    print(f"Precision: {precision_score(y_test, y_pred):.4f}")
+    print(f"Recall:    {recall_score(y_test, y_pred):.4f}")
+    print(f"F1-Score:  {f1_score(y_test, y_pred):.4f}")
+    print(f"MCC:       {matthews_corrcoef(y_test, y_pred):.4f}")
+
+    roc_auc = roc_auc_score(y_test, y_prob)
+    print(f"ROC-AUC:   {roc_auc:.4f}")
+
+    precision, recall, _ = precision_recall_curve(y_test, y_prob)
+    pr_auc = auc(recall, precision)
+    print(f"PR-AUC:    {pr_auc:.4f}")
+
+    # Confusion Matrix
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(7, 6))
+    sns.heatmap(cm, annot=True, cmap="Blues", fmt="d",
+                xticklabels=["Valid", "Fraud"],
+                yticklabels=["Valid", "Fraud"])
+    plt.title("Confusion Matrix")
+    plt.show()
+    # PR Curve
+    plt.plot(recall, precision)
+    plt.title("Precision-Recall Curve")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.grid(True)
+    plt.show()
+
+
+# ===========================================================
+# MAIN WORKFLOW
+# ===========================================================
+def main():
+    df = load_dataset()
+    dataset_analysis(df)
+
+    X, y, scaler = preprocess(df)
+
+    # Preserve class distribution
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.20, random_state=42, stratify=y
+    )
+
+    pipeline = build_pipeline()
+
+    print("\nRunning Hyperparameter Tuning...")
+    best_model = tune_model(pipeline, X_train, y_train)
+    print("\nEvaluating Final Model...")
+    evaluate(best_model, X_test, y_test)
+
+
+if __name__ == "__main__":
+    main()
